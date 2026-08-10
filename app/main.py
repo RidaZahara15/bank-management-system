@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from app.database import SessionLocal
 from app import schemas 
 from fastapi import Depends
+from app import auth
 
 Base.metadata.create_all(bind=engine)
 
@@ -33,7 +34,7 @@ def create_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
     new_user = models.User(
         name=user.name,
         email=user.email,
-        password_hash=user.password
+        password_hash=auth.hash_password(user.password)
     )
     db.add(new_user)
     db.commit()
