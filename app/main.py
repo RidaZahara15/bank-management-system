@@ -6,6 +6,7 @@ from app.database import SessionLocal
 from app import schemas 
 from fastapi import Depends
 from app import auth
+from fastapi import HTTPException
 
 Base.metadata.create_all(bind=engine)
 
@@ -40,3 +41,17 @@ def create_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(new_user)
     return new_user
+
+
+
+@app.post("/login")
+def login(credentials: schemas.UserLogin, db: Session = Depends(get_db)):
+    user = db.query(models.User).filter(models.User.email == credentials.email).first()
+
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid email or password")
+
+    if not auth.verify_password(credentials.password, user.password_hash):
+        raise HTTPException(status_code=401, detail="Invalid email or password")
+
+    return {"message": "Login successful", "user_id": user.id}
