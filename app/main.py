@@ -8,7 +8,8 @@ from fastapi import Depends
 from app import auth
 from fastapi import HTTPException
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-
+import random
+import string
 
 Base.metadata.create_all(bind=engine)
 
@@ -24,8 +25,6 @@ def get_db():
 
 
 security = HTTPBearer()
-
-
 def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security), db: Session = Depends(get_db)):
     token = credentials.credentials
     payload = auth.verify_token(token)
@@ -82,3 +81,36 @@ def login(credentials: schemas.UserLogin, db: Session = Depends(get_db)):
 @app.get("/profile", response_model=schemas.UserResponse)
 def get_profile(current_user: models.User = Depends(get_current_user)):
     return current_user
+
+
+
+def generate_account_number():
+    return "ACC" + "".join(random.choices(string.digits, k=8))
+
+
+@app.post("/accounts", response_model=schemas.AccountResponse)
+def create_account(
+    account: schemas.AccountCreate,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    new_account = models.Account(
+        account_number=generate_account_number(),
+        account_type=account.account_type,
+        balance=0.0,
+        user_id=current_user.id
+    )
+    db.add(new_account)
+    db.commit()
+    db.refresh(new_account)
+    return new_account
+
+
+
+@app.get("/accounts", response_model=list[schemas.AccountResponse])
+def get_my_accounts(
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    accounts = db.query(models.Account).filter(models.Account.user_id == current_user.id).all()
+    return accounts
