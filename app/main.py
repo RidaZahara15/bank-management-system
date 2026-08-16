@@ -114,3 +114,20 @@ def get_my_accounts(
 ):
     accounts = db.query(models.Account).filter(models.Account.user_id == current_user.id).all()
     return accounts
+
+
+@app.get("/accounts/{account_id}", response_model=schemas.AccountResponse)
+def get_account(
+    account_id: int,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    account = db.query(models.Account).filter(models.Account.id == account_id).first()
+
+    if not account:
+        raise HTTPException(status_code=404, detail="Account not found")
+
+    if account.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized to view this account")
+
+    return account
