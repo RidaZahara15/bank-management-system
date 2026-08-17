@@ -1,4 +1,5 @@
 from pydantic import BaseModel, EmailStr
+from datetime import datetime
 
 
 class UserCreate(BaseModel):
@@ -32,6 +33,21 @@ class AccountResponse(BaseModel):
     account_number: str
     balance: float
     account_type: str
+
+    class Config:
+        from_attributes = True
+
+
+
+class DepositRequest(BaseModel):
+    amount: float
+
+
+class TransactionResponse(BaseModel):
+    id: int
+    type: str
+    amount: float
+    timestamp: datetime
 
     class Config:
         from_attributes = True

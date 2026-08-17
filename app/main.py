@@ -154,3 +154,36 @@ def close_account(
     db.delete(account)
     db.commit()
     return {"message": "Account closed successfully"}
+
+
+
+@app.post("/accounts/{account_id}/deposit", response_model=schemas.TransactionResponse)
+def deposit(
+    account_id: int,
+    deposit_data: schemas.DepositRequest,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    account = db.query(models.Account).filter(models.Account.id == account_id).first()
+
+    if not account:
+        raise HTTPException(status_code=404, detail="Account not found")
+
+    if account.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    if deposit_data.amount <= 0:
+        raise HTTPException(status_code=400, detail="Deposit amount must be positive")
+
+    account.balance += deposit_data.amount
+
+    new_transaction = models.Transaction(
+        type="deposit",
+        amount=deposit_data.amount,
+        account_id=account.id
+    )
+    db.add(new_transaction)
+    db.commit()
+    db.refresh(new_transaction)
+
+    return new_transaction
