@@ -187,3 +187,61 @@ def deposit(
     db.refresh(new_transaction)
 
     return new_transaction
+
+
+
+@app.post("/accounts/{account_id}/withdraw", response_model=schemas.TransactionResponse)
+def withdraw(
+    account_id: int,
+    withdraw_data: schemas.DepositRequest,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    account = db.query(models.Account).filter(models.Account.id == account_id).first()
+
+    if not account:
+        raise HTTPException(status_code=404, detail="Account not found")
+
+    if account.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    if withdraw_data.amount <= 0:
+        raise HTTPException(status_code=400, detail="Withdrawal amount must be positive")
+
+    if withdraw_data.amount > account.balance:
+        raise HTTPException(status_code=400, detail="Insufficient balance")
+
+    account.balance -= withdraw_data.amount
+
+    new_transaction = models.Transaction(
+        type="withdraw",
+        amount=withdraw_data.amount,
+        account_id=account.id
+    )
+    db.add(new_transaction)
+    db.commit()
+    db.refresh(new_transaction)
+
+    return new_transaction
+
+
+
+@app.get("/accounts/{account_id}/transactions", response_model=list[schemas.TransactionResponse])
+def get_transaction_history(
+    account_id: int,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    account = db.query(models.Account).filter(models.Account.id == account_id).first()
+
+    if not account:
+        raise HTTPException(status_code=404, detail="Account not found")
+
+    if account.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    transactions = db.query(models.Transaction).filter(
+        models.Transaction.account_id == account_id
+    ).order_by(models.Transaction.timestamp.desc()).all()
+
+    return transactions
