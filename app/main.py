@@ -245,3 +245,14 @@ def get_transaction_history(
     ).order_by(models.Transaction.timestamp.desc()).all()
 
     return transactions
+
+
+
+@app.get("/accounts/summary/total-balance")
+def get_total_balance(
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    accounts = db.query(models.Account).filter(models.Account.user_id == current_user.id).all()
+    total = sum(account.balance for account in accounts)
+    return {"total_balance": total, "number_of_accounts": len(accounts)}
