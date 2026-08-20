@@ -256,3 +256,58 @@ def get_total_balance(
     accounts = db.query(models.Account).filter(models.Account.user_id == current_user.id).all()
     total = sum(account.balance for account in accounts)
     return {"total_balance": total, "number_of_accounts": len(accounts)}
+
+
+@app.post("/transfer")
+def transfer(
+    transfer_data: schemas.TransferRequest,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    if transfer_data.amount <= 0:
+        raise HTTPException(status_code=400, detail="Transfer amount must be positive")
+
+    if transfer_data.from_account_id == transfer_data.to_account_id:
+        raise HTTPException(status_code=400, detail="Cannot transfer to the same account")
+
+    from_account = db.query(models.Account).filter(models.Account.id == transfer_data.from_account_id).first()
+    to_account = db.query(models.Account).filter(models.Account.id == transfer_data.to_account_id).first()
+
+    if not from_account or not to_account:
+        raise HTTPException(status_code=404, detail="One or both accounts not found")
+
+    if from_account.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized to transfer from this account")
+
+    if transfer_data.amount > from_account.balance:
+        raise HTTPException(status_code=400, detail="Insufficient balance")
+
+    try:
+        from_account.balance -= transfer_data.amount
+        to_account.balance += transfer_data.amount
+
+        debit_transaction = models.Transaction(
+            type="transfer_out",
+            amount=transfer_data.amount,
+            account_id=from_account.id
+        )
+        credit_transaction = models.Transaction(
+            type="transfer_in",
+            amount=transfer_data.amount,
+            account_id=to_account.id
+        )
+
+        db.add(debit_transaction)
+        db.add(credit_transaction)
+        db.commit()
+
+    except Exception:
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Transfer failed, no changes were made")
+
+    return {
+        "message": "Transfer successful",
+        "from_account": from_account.account_number,
+        "to_account": to_account.account_number,
+        "amount": transfer_data.amount
+    }
