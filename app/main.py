@@ -10,6 +10,7 @@ from fastapi import HTTPException
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 import random
 import string
+from datetime import datetime, timedelta
 
 Base.metadata.create_all(bind=engine)
 
@@ -281,6 +282,24 @@ def transfer(
 
     if transfer_data.amount > from_account.balance:
         raise HTTPException(status_code=400, detail="Insufficient balance")
+    
+
+
+    DAILY_TRANSFER_LIMIT = 50000
+
+    today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+
+    today_transfers = db.query(models.Transaction).filter(
+        models.Transaction.account_id == from_account.id,
+        models.Transaction.type == "transfer_out",
+        models.Transaction.timestamp >= today_start
+    ).all()
+
+    total_today = sum(t.amount for t in today_transfers)
+
+    if total_today + transfer_data.amount > DAILY_TRANSFER_LIMIT:
+        raise HTTPException(status_code=400, detail=f"Daily transfer limit of {DAILY_TRANSFER_LIMIT} exceeded")
+
 
     try:
         from_account.balance -= transfer_data.amount
