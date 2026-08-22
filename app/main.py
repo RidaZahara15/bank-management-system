@@ -330,3 +330,19 @@ def transfer(
         "to_account": to_account.account_number,
         "amount": transfer_data.amount
     }
+
+
+
+@app.get("/transactions", response_model=list[schemas.TransactionResponse])
+def get_all_transactions(
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    user_accounts = db.query(models.Account).filter(models.Account.user_id == current_user.id).all()
+    account_ids = [account.id for account in user_accounts]
+
+    transactions = db.query(models.Transaction).filter(
+        models.Transaction.account_id.in_(account_ids)
+    ).order_by(models.Transaction.timestamp.desc()).all()
+
+    return transactions

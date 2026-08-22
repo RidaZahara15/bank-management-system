@@ -48,6 +48,7 @@ class TransactionResponse(BaseModel):
     type: str
     amount: float
     timestamp: datetime
+    account_id: int
 
     class Config:
         from_attributes = True
