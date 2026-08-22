@@ -212,6 +212,11 @@ def withdraw(
     if withdraw_data.amount > account.balance:
         raise HTTPException(status_code=400, detail="Insufficient balance")
 
+    MINIMUM_BALANCE = 100
+
+    if account.balance - withdraw_data.amount < MINIMUM_BALANCE:
+        raise HTTPException(status_code=400, detail=f"Cannot withdraw - minimum balance of {MINIMUM_BALANCE} must be maintained")
+
     account.balance -= withdraw_data.amount
 
     new_transaction = models.Transaction(
@@ -282,6 +287,12 @@ def transfer(
 
     if transfer_data.amount > from_account.balance:
         raise HTTPException(status_code=400, detail="Insufficient balance")
+
+
+    MINIMUM_BALANCE = 100
+
+    if from_account.balance - transfer_data.amount < MINIMUM_BALANCE:
+        raise HTTPException(status_code=400, detail=f"Cannot transfer - minimum balance of {MINIMUM_BALANCE} must be maintained")    
     
 
 
