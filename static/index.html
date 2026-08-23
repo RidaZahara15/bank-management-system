@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Bank Management System</title>
+</head>
+<body>
+    <h1>Bank Management System</h1>
+
+    <h2>Signup</h2>
+    <input type="text" id="signup-name" placeholder="Name">
+    <input type="email" id="signup-email" placeholder="Email">
+    <input type="password" id="signup-password" placeholder="Password">
+    <button onclick="signup()">Signup</button>
+
+    <h2>Login</h2>
+    <input type="email" id="login-email" placeholder="Email">
+    <input type="password" id="login-password" placeholder="Password">
+    <button onclick="login()">Login</button>
+
+    <p id="message"></p>
+
+    <script>
+        async function signup() {
+            const response = await fetch("/users", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    name: document.getElementById("signup-name").value,
+                    email: document.getElementById("signup-email").value,
+                    password: document.getElementById("signup-password").value
+                })
+            });
+            const data = await response.json();
+            document.getElementById("message").innerText = JSON.stringify(data);
+        }
+
+        async function login() {
+            const response = await fetch("/login", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    email: document.getElementById("login-email").value,
+                    password: document.getElementById("login-password").value
+                })
+            });
+            const data = await response.json();
+            document.getElementById("message").innerText = JSON.stringify(data);
+        }
+    </script>
+</body>
+</html>

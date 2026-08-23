@@ -11,10 +11,14 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 import random
 import string
 from datetime import datetime, timedelta
+from fastapi.staticfiles import StaticFiles
 
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Bank Management API")
+app.mount("/static", StaticFiles(directory="static", html=True), name="static")
+
+
 def get_db():
     db = SessionLocal()   
     try:
