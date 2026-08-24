@@ -89,6 +89,7 @@
         <button onclick="login()">Login</button>
 
         <p id="message"></p>
+        <div id="dashboard"></div>
     </div>
 
     <script>
@@ -106,18 +107,42 @@
             document.getElementById("message").innerText = JSON.stringify(data);
         }
 
-        async function login() {
-            const response = await fetch("/login", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    email: document.getElementById("login-email").value,
-                    password: document.getElementById("login-password").value
-                })
-            });
-            const data = await response.json();
-            document.getElementById("message").innerText = JSON.stringify(data);
-        }
+       async function login() {
+        const response = await fetch("/login", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                email: document.getElementById("login-email").value,
+                password: document.getElementById("login-password").value
+            
+            })
+        });
+    const data = await response.json();
+
+    if (data.access_token) {
+        localStorage.setItem("token", data.access_token);
+        document.getElementById("message").innerText = "Login successful!";
+        loadDashboard();
+    } else {
+        document.getElementById("message").innerText = JSON.stringify(data);
+    }
+}
+
+        async function loadDashboard() { 
+        const token = localStorage.getItem("token");
+        const response = await fetch("/accounts", {
+            headers: { "Authorization": "Bearer " + token }
+        });
+        
+        const accounts = await response.json();
+
+        let html = "<h2>Your Accounts</h2>";
+        accounts.forEach(acc => {
+            html += `<p>${acc.account_type} (${acc.account_number}): Rs. ${acc.balance}</p>`;
+        });
+        
+        document.getElementById("dashboard").innerHTML = html;
+}
     </script>
 </body>
 </html>
