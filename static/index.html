@@ -107,42 +107,55 @@
             document.getElementById("message").innerText = JSON.stringify(data);
         }
 
-       async function login() {
-        const response = await fetch("/login", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                email: document.getElementById("login-email").value,
-                password: document.getElementById("login-password").value
-            
-            })
-        });
-    const data = await response.json();
+        async function login() {
+            const response = await fetch("/login", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    email: document.getElementById("login-email").value,
+                    password: document.getElementById("login-password").value
+                })
+            });
+            const data = await response.json();
 
-    if (data.access_token) {
-        localStorage.setItem("token", data.access_token);
-        document.getElementById("message").innerText = "Login successful!";
-        loadDashboard();
-    } else {
-        document.getElementById("message").innerText = JSON.stringify(data);
-    }
-}
+            if (data.access_token) {
+                localStorage.setItem("token", data.access_token);
+                document.getElementById("message").innerText = "Login successful!";
+                loadDashboard();
+            } else {
+                document.getElementById("message").innerText = JSON.stringify(data);
+            }
+        }
 
-        async function loadDashboard() { 
-        const token = localStorage.getItem("token");
-        const response = await fetch("/accounts", {
-            headers: { "Authorization": "Bearer " + token }
-        });
-        
-        const accounts = await response.json();
+        async function loadDashboard() {
+            const token = localStorage.getItem("token");
+            const response = await fetch("/accounts", {
+                headers: { "Authorization": "Bearer " + token }
+            });
+            const accounts = await response.json();
 
-        let html = "<h2>Your Accounts</h2>";
-        accounts.forEach(acc => {
-            html += `<p>${acc.account_type} (${acc.account_number}): Rs. ${acc.balance}</p>`;
-        });
-        
-        document.getElementById("dashboard").innerHTML = html;
-}
+            let html = "<h2>Your Accounts</h2>";
+            accounts.forEach(acc => {
+                html += `<p>${acc.account_type} (${acc.account_number}): Rs. ${acc.balance}</p>`;
+            });
+            html += `<button onclick="logout()">Logout</button>`;
+            document.getElementById("dashboard").innerHTML = html;
+        }
+
+        function logout() {
+            localStorage.removeItem("token");
+            document.getElementById("dashboard").innerHTML = "";
+            document.getElementById("message").innerText = "Logged out successfully";
+            document.getElementById("login-email").value = "";
+            document.getElementById("login-password").value = "";
+        }
+
+        window.onload = function() {
+            const token = localStorage.getItem("token");
+            if (token) {
+                loadDashboard();
+            }
+        };
     </script>
 </body>
 </html>
