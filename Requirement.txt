@@ -4,3 +4,4 @@ pydantic[email]
 passlib[bcrypt]
 python-jose[cryptography]
 uvicorn[standard]
+slowapi

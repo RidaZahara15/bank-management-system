@@ -12,10 +12,19 @@ import random
 import string
 from datetime import datetime, timedelta
 from fastapi.staticfiles import StaticFiles
+from fastapi import Request
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+
+limiter = Limiter(key_func=get_remote_address)
 
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Bank Management API")
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
 app.mount("/static", StaticFiles(directory="static", html=True), name="static")
 
 
@@ -69,7 +78,8 @@ def create_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
 
 
 @app.post("/login")
-def login(credentials: schemas.UserLogin, db: Session = Depends(get_db)):
+@limiter.limit("5/minute")
+def login(request: Request,credentials: schemas.UserLogin, db: Session = Depends(get_db)):
     user = db.query(models.User).filter(models.User.email == credentials.email).first()
 
     if not user:
