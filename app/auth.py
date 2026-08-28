@@ -2,6 +2,12 @@ from passlib.context import CryptContext
 from jose import jwt
 from datetime import datetime, timedelta
 from jose import JWTError
+from dotenv import load_dotenv
+import os
+
+
+load_dotenv()
+
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -16,7 +22,7 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
 
 
-SECRET_KEY = "This is secret key for now"
+SECRET_KEY = os.getenv("JWT_SECRET_KEY")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60
 

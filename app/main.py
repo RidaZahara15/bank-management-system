@@ -16,6 +16,13 @@ from fastapi import Request
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
+import httpx
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
+
+RECAPTCHA_SECRET_KEY =os.getenv("Recaptcha_Secret_key")
 
 limiter = Limiter(key_func=get_remote_address)
 
@@ -77,9 +84,24 @@ def create_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
 
 
 
+async def verify_captcha(token: str):
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+            "https://www.google.com/recaptcha/api/siteverify",
+            data={"secret": RECAPTCHA_SECRET_KEY, "response": token}
+        )
+        result = response.json()
+        return result.get("success", False)
+
+
+    
+
 @app.post("/login")
 @limiter.limit("5/minute")
-def login(request: Request, credentials: schemas.UserLogin, db: Session = Depends(get_db)):
+async def login(request: Request, credentials: schemas.UserLogin, db: Session = Depends(get_db)):
+    is_human = await verify_captcha(credentials.captcha_token)
+    if not is_human:
+        raise HTTPException(status_code=400, detail="CAPTCHA verification failed")
     one_minute_ago = datetime.utcnow() - timedelta(minutes=1)
     recent_attempts = db.query(models.LoginAttempt).filter(
         models.LoginAttempt.email == credentials.email,

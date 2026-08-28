@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
+    <script src="https://www.google.com/recaptcha/api.js" async defer></script>
     <title>Bank Management System</title>
     <style>
         * {
@@ -83,6 +84,8 @@
         <input type="password" id="signup-password" placeholder="Password">
         <button onclick="signup()">Signup</button>
 
+        <div class="g-recaptcha" data-sitekey="6Legu5wtAAAAADQKKEPhFMU5cZ9pDKuyWQQLfhfB"></div>
+
         <h2>Login</h2>
         <input type="email" id="login-email" placeholder="Email">
         <input type="password" id="login-password" placeholder="Password">
@@ -108,12 +111,19 @@
         }
 
         async function login() {
+            const captchaResponse = grecaptcha.getResponse();
+            if (!captchaResponse) {
+                document.getElementById("message").innerText = "Please verify you are not a robot";
+            return;
+            }
+
             const response = await fetch("/login", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     email: document.getElementById("login-email").value,
-                    password: document.getElementById("login-password").value
+                    password: document.getElementById("login-password").value,
+                    captcha_token: captchaResponse
                 })
             });
             const data = await response.json();
@@ -122,7 +132,8 @@
                 localStorage.setItem("token", data.access_token);
                 document.getElementById("message").innerText = "Login successful!";
                 loadDashboard();
-            } else {
+            } 
+            else {
                 document.getElementById("message").innerText = JSON.stringify(data);
             }
         }

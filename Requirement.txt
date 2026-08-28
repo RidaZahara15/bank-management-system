@@ -5,3 +5,5 @@ passlib[bcrypt]
 python-jose[cryptography]
 uvicorn[standard]
 slowapi
+httpx
+python-dotenv
