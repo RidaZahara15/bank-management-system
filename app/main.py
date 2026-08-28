@@ -79,13 +79,22 @@ def create_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
 
 @app.post("/login")
 @limiter.limit("5/minute")
-def login(request: Request,credentials: schemas.UserLogin, db: Session = Depends(get_db)):
+def login(request: Request, credentials: schemas.UserLogin, db: Session = Depends(get_db)):
+    one_minute_ago = datetime.utcnow() - timedelta(minutes=1)
+    recent_attempts = db.query(models.LoginAttempt).filter(
+        models.LoginAttempt.email == credentials.email,
+        models.LoginAttempt.timestamp >= one_minute_ago
+    ).count()
+
+    if recent_attempts >= 5:
+        raise HTTPException(status_code=429, detail="Too many login attempts for this email. Try again later.")
+
     user = db.query(models.User).filter(models.User.email == credentials.email).first()
 
-    if not user:
-        raise HTTPException(status_code=401, detail="Invalid email or password")
-
-    if not auth.verify_password(credentials.password, user.password_hash):
+    if not user or not auth.verify_password(credentials.password, user.password_hash):
+        failed_attempt = models.LoginAttempt(email=credentials.email)
+        db.add(failed_attempt)
+        db.commit()
         raise HTTPException(status_code=401, detail="Invalid email or password")
 
     token = auth.create_access_token(data={"user_id": user.id, "email": user.email})

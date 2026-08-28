@@ -38,3 +38,12 @@ class Transaction(Base):
     account_id = Column(Integer, ForeignKey("accounts.id"))
 
     account = relationship("Account", back_populates="transactions")
+
+
+
+class LoginAttempt(Base):
+    __tablename__ = "login_attempts"
+
+    id = Column(Integer, primary_key=True, index=True)
+    email = Column(String, nullable=False)
+    timestamp = Column(DateTime, default=datetime.utcnow)
