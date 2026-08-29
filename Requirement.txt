@@ -7,3 +7,4 @@ uvicorn[standard]
 slowapi
 httpx
 python-dotenv
+pytest httpx
