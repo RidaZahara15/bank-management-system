@@ -19,6 +19,7 @@ from slowapi.errors import RateLimitExceeded
 import httpx
 from dotenv import load_dotenv
 import os
+from fastapi.responses import HTMLResponse
 
 load_dotenv()
 
@@ -405,3 +406,13 @@ def get_all_transactions(
     ).order_by(models.Transaction.timestamp.desc()).all()
 
     return transactions
+
+
+@app.get("/demo-vulnerable")
+def demo_vulnerable(name: str):
+    return HTMLResponse(f"<h1>Welcome, {name}!</h1>")
+
+
+@app.get("/demo-safe")
+def demo_safe(name: str):
+    return {"message": f"Welcome, {name}!"}
