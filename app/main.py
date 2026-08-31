@@ -46,6 +46,10 @@ def get_db():
 
 
 
+
+
+
+
 security = HTTPBearer()
 def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security), db: Session = Depends(get_db)):
     token = credentials.credentials
@@ -416,3 +420,14 @@ def demo_vulnerable(name: str):
 @app.get("/demo-safe")
 def demo_safe(name: str):
     return {"message": f"Welcome, {name}!"}
+
+
+def require_admin(current_user: models.User = Depends(get_current_user)):
+    if not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Admin access required")
+    return current_user
+
+@app.get("/admin/accounts", response_model=list[schemas.AccountResponse])
+def get_all_accounts(admin: models.User = Depends(require_admin), db: Session = Depends(get_db)):
+    accounts = db.query(models.Account).all()
+    return accounts
