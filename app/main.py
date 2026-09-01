@@ -226,6 +226,9 @@ def deposit(
     if account.user_id != current_user.id:
         raise HTTPException(status_code=403, detail="Not authorized")
 
+    if account.is_frozen:
+        raise HTTPException(status_code=403, detail="This account is frozen")
+
     if deposit_data.amount <= 0:
         raise HTTPException(status_code=400, detail="Deposit amount must be positive")
 
@@ -259,11 +262,16 @@ def withdraw(
     if account.user_id != current_user.id:
         raise HTTPException(status_code=403, detail="Not authorized")
 
+    
+    if account.is_frozen:
+        raise HTTPException(status_code=403, detail="This account is frozen")
+
     if withdraw_data.amount <= 0:
         raise HTTPException(status_code=400, detail="Withdrawal amount must be positive")
 
     if withdraw_data.amount > account.balance:
         raise HTTPException(status_code=400, detail="Insufficient balance")
+    
 
     MINIMUM_BALANCE = 100
 
@@ -298,6 +306,7 @@ def get_transaction_history(
 
     if account.user_id != current_user.id:
         raise HTTPException(status_code=403, detail="Not authorized")
+    
 
     transactions = db.query(models.Transaction).filter(
         models.Transaction.account_id == account_id
@@ -340,6 +349,10 @@ def transfer(
 
     if transfer_data.amount > from_account.balance:
         raise HTTPException(status_code=400, detail="Insufficient balance")
+
+    
+    if from_account.is_frozen:   # <- SIRF ye check hota hai
+        raise HTTPException(status_code=403, detail="Your account is frozen")
 
 
     MINIMUM_BALANCE = 100
@@ -431,3 +444,26 @@ def require_admin(current_user: models.User = Depends(get_current_user)):
 def get_all_accounts(admin: models.User = Depends(require_admin), db: Session = Depends(get_db)):
     accounts = db.query(models.Account).all()
     return accounts
+
+
+
+@app.post("/admin/accounts/{account_id}/freeze")
+def freeze_account(account_id: int, admin: models.User = Depends(require_admin), db: Session = Depends(get_db)):
+    account = db.query(models.Account).filter(models.Account.id == account_id).first()
+    if not account:
+        raise HTTPException(status_code=404, detail="Account not found")
+
+    account.is_frozen = True
+    db.commit()
+    return {"message": "Account frozen successfully"}
+
+
+@app.post("/admin/accounts/{account_id}/unfreeze")
+def unfreeze_account(account_id: int, admin: models.User = Depends(require_admin), db: Session = Depends(get_db)):
+    account = db.query(models.Account).filter(models.Account.id == account_id).first()
+    if not account:
+        raise HTTPException(status_code=404, detail="Account not found")
+
+    account.is_frozen = False
+    db.commit()
+    return {"message": "Account unfrozen successfully"}
