@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Dashboard - Bank Management System</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: Arial, sans-serif; }
+        body { background-color: #f0f2f5; padding: 20px; }
+        .container { max-width: 600px; margin: 0 auto; }
+        h1 { color: #1a3c6e; margin-bottom: 20px; text-align: center; }
+        .account-card { background: white; border-radius: 10px; padding: 20px; margin-bottom: 15px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+        .account-card p { margin-bottom: 8px; }
+        input { width: 60%; padding: 8px; margin-right: 5px; border: 1px solid #ccc; border-radius: 5px; }
+        button { padding: 8px 15px; background-color: #1a3c6e; color: white; border: none; border-radius: 5px; cursor: pointer; margin-top: 5px; }
+        button:hover { background-color: #14305a; }
+        .top-buttons { text-align: right; margin-bottom: 20px; }
+        #message { margin-top: 15px; padding: 10px; background: white; border-radius: 5px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="top-buttons">
+            <button onclick="window.location.href='admin.html'">🛡️ Admin Panel</button>
+            <button onclick="logout()">🚪 Logout</button>
+        </div>
+
+        <h1>Your Accounts</h1>
+        <div id="accounts-list"></div>
+
+        <p id="message"></p>
+    </div>
+
+    <script>
+        async function loadAccounts() {
+            const token = localStorage.getItem("token");
+            if (!token) {
+                window.location.href = "index.html";
+                return;
+            }
+
+            const response = await fetch("/accounts", {
+                headers: { "Authorization": "Bearer " + token }
+            });
+            const accounts = await response.json();
+
+            let html = "";
+            accounts.forEach(acc => {
+                html += `
+                    <div class="account-card">
+                        <p><strong>${acc.account_type}</strong> (${acc.account_number})</p>
+                        <p>Balance: Rs. ${acc.balance}</p>
+                        <input type="number" id="amount-${acc.id}" placeholder="Amount">
+                        <button onclick="deposit(${acc.id})">💰 Deposit</button>
+                        <button onclick="withdraw(${acc.id})">💸 Withdraw</button>
+                    </div>
+                `;
+            });
+            document.getElementById("accounts-list").innerHTML = html;
+        }
+
+        async function deposit(accountId) {
+            const amount = document.getElementById(`amount-${accountId}`).value;
+            const token = localStorage.getItem("token");
+
+            const response = await fetch(`/accounts/${accountId}/deposit`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json", "Authorization": "Bearer " + token },
+                body: JSON.stringify({ amount: parseFloat(amount) })
+            });
+
+            const data = await response.json();
+            if (response.ok) {
+                document.getElementById("message").innerText = "Deposit successful!";
+                loadAccounts();
+            } else {
+                document.getElementById("message").innerText = JSON.stringify(data);
+            }
+        }
+
+        async function withdraw(accountId) {
+            const amount = document.getElementById(`amount-${accountId}`).value;
+            const token = localStorage.getItem("token");
+
+            const response = await fetch(`/accounts/${accountId}/withdraw`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json", "Authorization": "Bearer " + token },
+                body: JSON.stringify({ amount: parseFloat(amount) })
+            });
+
+            const data = await response.json();
+            if (response.ok) {
+                document.getElementById("message").innerText = "Withdraw successful!";
+                loadAccounts();
+            } else {
+                document.getElementById("message").innerText = JSON.stringify(data);
+            }
+        }
+
+        function logout() {
+            localStorage.removeItem("token");
+            window.location.href = "index.html";
+        }
+
+        window.onload = loadAccounts;
+    </script>
+</body>
+</html>
