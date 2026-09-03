@@ -21,12 +21,20 @@
         <div class="top-buttons">
             <button onclick="window.location.href='admin.html'">🛡️ Admin Panel</button>
             <button onclick="logout()">🚪 Logout</button>
-        </div>
+    </div>
 
         <h1>Your Accounts</h1>
         <div id="accounts-list"></div>
 
         <p id="message"></p>
+        <div class="account-card">
+            <h2>Transfer Money</h2>
+            <input type="number" id="from-account" placeholder="From Account ID">
+            <input type="number" id="to-account" placeholder="To Account ID">
+            <input type="number" id="transfer-amount" placeholder="Amount">
+            <button onclick="transferMoney()">🔄 Transfer</button>
+        </div>
+        
     </div>
 
     <script>
@@ -101,6 +109,36 @@
         }
 
         window.onload = loadAccounts;
+
+
+        async function transferMoney() {
+            const fromId = document.getElementById("from-account").value;
+            const toId = document.getElementById("to-account").value;
+            const amount = document.getElementById("transfer-amount").value;
+            const token = localStorage.getItem("token");
+
+            const response = await fetch("/transfer", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": "Bearer " + token
+                },
+                body: JSON.stringify({
+                    from_account_id: parseInt(fromId),
+                    to_account_id: parseInt(toId),
+                    amount: parseFloat(amount)
+                })
+            });
+
+            const data = await response.json();
+            if (response.ok) {
+                document.getElementById("message").innerText = "Transfer successful!";
+                loadAccounts();
+            } 
+            else {
+                document.getElementById("message").innerText = JSON.stringify(data);
+            }
+        }
     </script>
 </body>
 </html>

@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Admin Panel - Bank Management System</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: Arial, sans-serif; }
+        body { background-color: #f0f2f5; padding: 20px; }
+        .container { max-width: 600px; margin: 0 auto; }
+        h1 { color: #1a3c6e; margin-bottom: 20px; text-align: center; }
+        .account-card { background: white; border-radius: 10px; padding: 20px; margin-bottom: 15px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+        .top-buttons { text-align: right; margin-bottom: 20px; }
+        button { padding: 8px 15px; background-color: #1a3c6e; color: white; border: none; border-radius: 5px; cursor: pointer; margin-left: 5px; margin-top: 5px; }
+        button:hover { background-color: #14305a; }
+        #message { margin-top: 15px; padding: 10px; background: white; border-radius: 5px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="top-buttons">
+            <button onclick="window.location.href='dashboard.html'">⬅️ Back to Dashboard</button>
+            <button onclick="logout()">🚪 Logout</button>
+        </div>
+
+        <h1>All Accounts (Admin View)</h1>
+        <div id="accounts-list"></div>
+
+        <p id="message"></p>
+    </div>
+
+    <script>
+        async function loadAllAccounts() {
+            const token = localStorage.getItem("token");
+            if (!token) {
+                window.location.href = "index.html";
+                return;
+            }
+
+            const response = await fetch("/admin/accounts", {
+                headers: { "Authorization": "Bearer " + token }
+            });
+
+            if (response.status === 403) {
+                document.getElementById("message").innerText = "Admin access required";
+                return;
+            }
+
+            const accounts = await response.json();
+            let html = "";
+            accounts.forEach(acc => {
+                html += `
+                    <div class="account-card">
+                        <p><strong>Account:</strong> ${acc.account_number}</p>
+                        <p><strong>Type:</strong> ${acc.account_type}</p>
+                        <p><strong>Balance:</strong> Rs. ${acc.balance}</p>
+                        <button onclick="freezeAccount(${acc.id})">🔒 Freeze</button>
+                        <button onclick="unfreezeAccount(${acc.id})">🔓 Unfreeze</button>
+                    </div>
+                `;
+            });
+            document.getElementById("accounts-list").innerHTML = html;
+        }
+
+        async function freezeAccount(accountId) {
+            const token = localStorage.getItem("token");
+            const response = await fetch(`/admin/accounts/${accountId}/freeze`, {
+                method: "POST",
+                headers: { "Authorization": "Bearer " + token }
+            });
+            const data = await response.json();
+            document.getElementById("message").innerText = JSON.stringify(data);
+            loadAllAccounts();
+        }
+
+        async function unfreezeAccount(accountId) {
+            const token = localStorage.getItem("token");
+            const response = await fetch(`/admin/accounts/${accountId}/unfreeze`, {
+                method: "POST",
+                headers: { "Authorization": "Bearer " + token }
+            });
+            const data = await response.json();
+            document.getElementById("message").innerText = JSON.stringify(data);
+            loadAllAccounts();
+        }
+
+        function logout() {
+            localStorage.removeItem("token");
+            window.location.href = "index.html";
+        }
+
+        window.onload = loadAllAccounts;
+    </script>
+</body>
+</html>
