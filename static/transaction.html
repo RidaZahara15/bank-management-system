@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Transaction History - Bank Management System</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: Arial, sans-serif; }
+        body { background-color: #f0f2f5; padding: 20px; }
+        .container { max-width: 600px; margin: 0 auto; }
+        h1 { color: #1a3c6e; margin-bottom: 20px; text-align: center; }
+        .top-buttons { text-align: right; margin-bottom: 20px; }
+        button { padding: 8px 15px; background-color: #1a3c6e; color: white; border: none; border-radius: 5px; cursor: pointer; margin-left: 5px; }
+        button:hover { background-color: #14305a; }
+        table { width: 100%; background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.08); border-collapse: collapse; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #eee; }
+        th { background-color: #1a3c6e; color: white; }
+        .deposit { color: green; }
+        .withdraw { color: red; }
+        .transfer_out { color: red; }
+        .transfer_in { color: green; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="top-buttons">
+            <button onclick="window.location.href='dashboard.html'">⬅️ Back to Dashboard</button>
+        </div>
+
+        <h1>Transaction History</h1>
+        <table>
+            <thead>
+                <tr>
+                    <th>Type</th>
+                    <th>Amount</th>
+                    <th>Account ID</th>
+                    <th>Date</th>
+                </tr>
+            </thead>
+            <tbody id="transactions-list"></tbody>
+        </table>
+    </div>
+
+    <script>
+        async function loadTransactions() {
+            const token = localStorage.getItem("token");
+            if (!token) {
+                window.location.href = "index.html";
+                return;
+            }
+
+            const response = await fetch("/transactions", {
+                headers: { "Authorization": "Bearer " + token }
+            });
+            const transactions = await response.json();
+
+            let html = "";
+            transactions.forEach(t => {
+                const date = new Date(t.timestamp).toLocaleString();
+                html += `
+                    <tr>
+                        <td class="${t.type}">${t.type}</td>
+                        <td>Rs. ${t.amount}</td>
+                        <td>${t.account_id}</td>
+                        <td>${date}</td>
+                    </tr>
+                `;
+            });
+            document.getElementById("transactions-list").innerHTML = html;
+        }
+
+        window.onload = loadTransactions;
+    </script>
+</body>
+</html>
