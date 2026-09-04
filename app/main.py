@@ -203,11 +203,16 @@ def close_account(
         raise HTTPException(status_code=403, detail="Not authorized to close this account")
 
     if account.balance > 0:
-        raise HTTPException(status_code=400, detail="Cannot close account with remaining balance")
-
+        final_withdrawal = models.Transaction(
+            type="withdraw",
+            amount=account.balance,
+            account_id=account.id
+        )
+    db.add(final_withdrawal)
+    account.balance = 0
     db.delete(account)
     db.commit()
-    return {"message": "Account closed successfully"}
+    return {"message": "Account closed successfully and remaining balance was withdrawn"}
 
 
 

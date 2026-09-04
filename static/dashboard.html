@@ -18,11 +18,29 @@
 </head>
 <body>
     <div class="container">
+        <div id="profile-info" style="text-align:center; margin-bottom:15px; color:#666;"></div>
+
+        
+        <div class="account-card" style="text-align:center;">
+            <h2>Total Balance</h2>
+            <h1 id="total-balance" style="color:#1a3c6e;">Rs. 0</h1>
+        </div>
+        
         <div class="top-buttons">
             <button onclick="window.location.href='transaction.html'">📜 Transaction History</button>
             <button onclick="window.location.href='admin.html'">🛡️ Admin Panel</button>
             <button onclick="logout()">🚪 Logout</button>
-    </div>
+        </div>
+
+        <div class="account-card">
+        <h2>Create New Account</h2>
+        <select id="new-account-type" style="width:100%; padding:10px; margin-bottom:10px; border:1px solid #ccc; border-radius:5px;">
+            <option value="savings">Savings</option>
+            <option value="current">Current</option>
+        </select>
+        <button onclick="createAccount()">➕ Create Account</button>
+        </div>
+
 
         <h1>Your Accounts</h1>
         <div id="accounts-list"></div>
@@ -35,16 +53,35 @@
             <input type="number" id="transfer-amount" placeholder="Amount">
             <button onclick="transferMoney()">🔄 Transfer</button>
         </div>
-        
+
     </div>
 
+    
+
     <script>
+        async function loadProfile() {
+        const token = localStorage.getItem("token");
+        const response = await fetch("/profile", {
+            headers: { "Authorization": "Bearer " + token }
+        });
+        const user = await response.json();
+        document.getElementById("profile-info").innerText = `Welcome, ${user.name} (${user.email})`;
+        }
+
+
+
+        
         async function loadAccounts() {
             const token = localStorage.getItem("token");
             if (!token) {
                 window.location.href = "index.html";
                 return;
             }
+            const balanceResponse = await fetch("/accounts/summary/total-balance", {
+                headers: { "Authorization": "Bearer " + token }
+            });
+            const balanceData = await balanceResponse.json();
+            document.getElementById("total-balance").innerText = `Rs. ${balanceData.total_balance}`;
 
             const response = await fetch("/accounts", {
                 headers: { "Authorization": "Bearer " + token }
@@ -60,6 +97,7 @@
                         <input type="number" id="amount-${acc.id}" placeholder="Amount">
                         <button onclick="deposit(${acc.id})">💰 Deposit</button>
                         <button onclick="withdraw(${acc.id})">💸 Withdraw</button>
+                        <button onclick="closeAccount(${acc.id})">❌ Close Account</button>
                     </div>
                 `;
             });
@@ -109,7 +147,10 @@
             window.location.href = "index.html";
         }
 
-        window.onload = loadAccounts;
+        window.onload = function() {
+            loadProfile();
+            loadAccounts();
+        };
 
 
         async function transferMoney() {
@@ -140,6 +181,52 @@
                 document.getElementById("message").innerText = JSON.stringify(data);
             }
         }
+
+
+        async function closeAccount(accountId) {
+        const token = localStorage.getItem("token");
+        const response = await fetch(`/accounts/${accountId}`, {
+            method: "DELETE",
+            headers: { "Authorization": "Bearer " + token }
+        });
+        const data = await response.json();
+        document.getElementById("message").innerText = JSON.stringify(data);
+        loadAccounts();
+        }
+
+
+        async function loadProfile() {
+        const token = localStorage.getItem("token");
+        const response = await fetch("/profile", {
+            headers: { "Authorization": "Bearer " + token }
+        });
+        const user = await response.json();
+        document.getElementById("profile-info").innerText = `Welcome, ${user.name} (${user.email})`;
+        }
+
+        async function createAccount() {
+            const accountType = document.getElementById("new-account-type").value;
+            const token = localStorage.getItem("token");
+
+            const response = await fetch("/accounts", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": "Bearer " + token
+                },
+                body: JSON.stringify({ account_type: accountType })
+            });
+
+            const data = await response.json();
+            if (response.ok) {
+                document.getElementById("message").innerText = "Account created successfully!";
+                loadAccounts();
+            } 
+            else {
+                document.getElementById("message").innerText = JSON.stringify(data);
+            }
+        }
+
     </script>
 </body>
 </html>
