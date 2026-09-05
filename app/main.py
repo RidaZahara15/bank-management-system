@@ -22,20 +22,24 @@ import os
 from fastapi.responses import HTMLResponse
 
 load_dotenv()
-
-RECAPTCHA_SECRET_KEY =os.getenv("Recaptcha_Secret_key")
-
-limiter = Limiter(key_func=get_remote_address)
-
 Base.metadata.create_all(bind=engine)
-
 app = FastAPI(title="Bank Management API")
-app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
-
 app.mount("/static", StaticFiles(directory="static", html=True), name="static")
 
 
+# Rate limiter setup - tracks requests per IP address
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+
+RECAPTCHA_SECRET_KEY =os.getenv("Recaptcha_Secret_key")
+
+
+security = HTTPBearer()
+
+
+# Gives each request its own database session, closes it when done
 def get_db():
     db = SessionLocal()   
     try:
@@ -44,13 +48,18 @@ def get_db():
         db.close()
 
 
+# Checks reCAPTCHA response with Google's servers
+async def verify_captcha(token: str):
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+        "https://www.google.com/recaptcha/api/siteverify",
+        data={"secret": RECAPTCHA_SECRET_KEY, "response": token}
+    )
+    result = response.json()
+    return result.get("success", False)
 
 
-
-
-
-
-security = HTTPBearer()
+# Reads the token from the request, checks it, and returns the logged-in user
 def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security), db: Session = Depends(get_db)):
     token = credentials.credentials
     payload = auth.verify_token(token)
@@ -64,6 +73,18 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
     return user
 
 
+
+# Blocks the request unless the logged-in user is an admin
+def require_admin(current_user: models.User = Depends(get_current_user)):
+    if not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Admin access required")
+    return current_user
+
+
+def generate_account_number():
+    return "ACC" + "".join(random.choices(string.digits, k=8))
+
+
 @app.get("/")
 def read_root():
     return {"message": "Bank API is running", "status": "ok"}
@@ -74,7 +95,7 @@ def health_check():
     return {"status": "healthy"}
 
 
-
+# Signs up a new user, hashes their password before saving
 @app.post("/users", response_model=schemas.UserResponse)
 def create_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
     new_user = models.User(
@@ -88,19 +109,14 @@ def create_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
     return new_user
 
 
-
-async def verify_captcha(token: str):
-    async with httpx.AsyncClient() as client:
-        response = await client.post(
-            "https://www.google.com/recaptcha/api/siteverify",
-            data={"secret": RECAPTCHA_SECRET_KEY, "response": token}
-        )
-        result = response.json()
-        return result.get("success", False)
+# Returns the logged-in user's own profile
+@app.get("/profile", response_model=schemas.UserResponse)
+def get_profile(current_user: models.User = Depends(get_current_user)):
+    return current_user
 
 
-    
 
+# Logs a user in - checks credentials, CAPTCHA, and rate limits by email too
 @app.post("/login")
 @limiter.limit("5/minute")
 async def login(request: Request, credentials: schemas.UserLogin, db: Session = Depends(get_db)):
@@ -108,9 +124,14 @@ async def login(request: Request, credentials: schemas.UserLogin, db: Session = 
         is_human = True
     else:
         is_human = await verify_captcha(credentials.captcha_token)
+
+
     if not is_human:
         raise HTTPException(status_code=400, detail="CAPTCHA verification failed")
     one_minute_ago = datetime.utcnow() - timedelta(minutes=1)
+
+
+    # Block this email if it's had too many failed attempts in the last minute
     recent_attempts = db.query(models.LoginAttempt).filter(
         models.LoginAttempt.email == credentials.email,
         models.LoginAttempt.timestamp >= one_minute_ago
@@ -121,6 +142,8 @@ async def login(request: Request, credentials: schemas.UserLogin, db: Session = 
 
     user = db.query(models.User).filter(models.User.email == credentials.email).first()
 
+
+    # Same error message for both cases so attackers can't tell which one was wrong
     if not user or not auth.verify_password(credentials.password, user.password_hash):
         failed_attempt = models.LoginAttempt(email=credentials.email)
         db.add(failed_attempt)
@@ -131,17 +154,7 @@ async def login(request: Request, credentials: schemas.UserLogin, db: Session = 
     return {"access_token": token, "token_type": "bearer"}
 
 
-
-@app.get("/profile", response_model=schemas.UserResponse)
-def get_profile(current_user: models.User = Depends(get_current_user)):
-    return current_user
-
-
-
-def generate_account_number():
-    return "ACC" + "".join(random.choices(string.digits, k=8))
-
-
+# Opens a new bank account for the logged-in user
 @app.post("/accounts", response_model=schemas.AccountResponse)
 def create_account(
     account: schemas.AccountCreate,
@@ -161,6 +174,7 @@ def create_account(
 
 
 
+# Lists only the accounts that belong to the logged-in user
 @app.get("/accounts", response_model=list[schemas.AccountResponse])
 def get_my_accounts(
     current_user: models.User = Depends(get_current_user),
@@ -170,6 +184,8 @@ def get_my_accounts(
     return accounts
 
 
+
+# Gets one specific account - only if it belongs to the logged-in user
 @app.get("/accounts/{account_id}", response_model=schemas.AccountResponse)
 def get_account(
     account_id: int,
@@ -187,7 +203,7 @@ def get_account(
     return account
 
 
-
+# Closes an account - withdraws any remaining balance first, then deletes it
 @app.delete("/accounts/{account_id}")
 def close_account(
     account_id: int,
@@ -216,6 +232,7 @@ def close_account(
 
 
 
+# Deposits money into an account and logs it as a transaction
 @app.post("/accounts/{account_id}/deposit", response_model=schemas.TransactionResponse)
 def deposit(
     account_id: int,
@@ -252,6 +269,7 @@ def deposit(
 
 
 
+# Withdraws money - blocks it if it would break the minimum balance rule
 @app.post("/accounts/{account_id}/withdraw", response_model=schemas.TransactionResponse)
 def withdraw(
     account_id: int,
@@ -297,7 +315,7 @@ def withdraw(
     return new_transaction
 
 
-
+# Transaction history for one specific account, newest first
 @app.get("/accounts/{account_id}/transactions", response_model=list[schemas.TransactionResponse])
 def get_transaction_history(
     account_id: int,
@@ -321,6 +339,7 @@ def get_transaction_history(
 
 
 
+# Adds up the balance across all of the user's accounts
 @app.get("/accounts/summary/total-balance")
 def get_total_balance(
     current_user: models.User = Depends(get_current_user),
@@ -331,6 +350,7 @@ def get_total_balance(
     return {"total_balance": total, "number_of_accounts": len(accounts)}
 
 
+# Moves money between two accounts - both sides succeed together or not at all
 @app.post("/transfer")
 def transfer(
     transfer_data: schemas.TransferRequest,
@@ -361,14 +381,14 @@ def transfer(
 
 
     MINIMUM_BALANCE = 100
-
+    DAILY_TRANSFER_LIMIT = 50000
     if from_account.balance - transfer_data.amount < MINIMUM_BALANCE:
         raise HTTPException(status_code=400, detail=f"Cannot transfer - minimum balance of {MINIMUM_BALANCE} must be maintained")    
     
 
 
-    DAILY_TRANSFER_LIMIT = 50000
-
+    
+# Check how much this account has already sent out today
     today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
 
     today_transfers = db.query(models.Transaction).filter(
@@ -382,7 +402,7 @@ def transfer(
     if total_today + transfer_data.amount > DAILY_TRANSFER_LIMIT:
         raise HTTPException(status_code=400, detail=f"Daily transfer limit of {DAILY_TRANSFER_LIMIT} exceeded")
 
-
+# Both balance changes and both transaction records happen together, or roll back
     try:
         from_account.balance -= transfer_data.amount
         to_account.balance += transfer_data.amount
@@ -414,7 +434,7 @@ def transfer(
     }
 
 
-
+# Combined history across ALL of the user's accounts, newest first
 @app.get("/transactions", response_model=list[schemas.TransactionResponse])
 def get_all_transactions(
     current_user: models.User = Depends(get_current_user),
@@ -430,6 +450,9 @@ def get_all_transactions(
     return transactions
 
 
+
+#For testing XSS Script
+
 @app.get("/demo-vulnerable")
 def demo_vulnerable(name: str):
     return HTMLResponse(f"<h1>Welcome, {name}!</h1>")
@@ -440,18 +463,15 @@ def demo_safe(name: str):
     return {"message": f"Welcome, {name}!"}
 
 
-def require_admin(current_user: models.User = Depends(get_current_user)):
-    if not current_user.is_admin:
-        raise HTTPException(status_code=403, detail="Admin access required")
-    return current_user
 
+# Admin-only: lists every account in the system, not just one user's
 @app.get("/admin/accounts", response_model=list[schemas.AccountResponse])
 def get_all_accounts(admin: models.User = Depends(require_admin), db: Session = Depends(get_db)):
     accounts = db.query(models.Account).all()
     return accounts
 
 
-
+# Admin-only: freezes an account so deposits/withdrawals/transfers get blocked
 @app.post("/admin/accounts/{account_id}/freeze")
 def freeze_account(account_id: int, admin: models.User = Depends(require_admin), db: Session = Depends(get_db)):
     account = db.query(models.Account).filter(models.Account.id == account_id).first()
@@ -463,6 +483,9 @@ def freeze_account(account_id: int, admin: models.User = Depends(require_admin),
     return {"message": "Account frozen successfully"}
 
 
+
+
+# Admin-only: unfreezes an account, letting normal activity resume
 @app.post("/admin/accounts/{account_id}/unfreeze")
 def unfreeze_account(account_id: int, admin: models.User = Depends(require_admin), db: Session = Depends(get_db)):
     account = db.query(models.Account).filter(models.Account.id == account_id).first()

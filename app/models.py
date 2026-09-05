@@ -42,6 +42,7 @@ class Transaction(Base):
     account = relationship("Account", back_populates="transactions")
 
 
+# Tracks failed logins so we can rate-limit by email, not just by IP
 
 class LoginAttempt(Base):
     __tablename__ = "login_attempts"
