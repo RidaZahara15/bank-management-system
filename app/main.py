@@ -224,7 +224,7 @@ def close_account(
             amount=account.balance,
             account_id=account.id
         )
-    db.add(final_withdrawal)
+        db.add(final_withdrawal)
     account.balance = 0
     db.delete(account)
     db.commit()
