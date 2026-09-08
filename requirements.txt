@@ -7,5 +7,6 @@ uvicorn[standard]
 slowapi
 httpx
 python-dotenv
-pytest httpx
+pytest 
+httpx
 psycopg2-binary
