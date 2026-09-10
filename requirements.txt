@@ -2,6 +2,7 @@ fastapi
 sqlalchemy
 pydantic[email]
 passlib[bcrypt]
+#updated:
 bcrypt==4.0.1
 python-jose[cryptography]
 uvicorn[standard]
