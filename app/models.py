@@ -25,6 +25,7 @@ class Account(Base):
     account_type = Column(String, default="savings")
     user_id = Column(Integer, ForeignKey("users.id"))
     is_frozen = Column(Boolean, default=False)
+    is_active = Column(Boolean, default=True)
 
     owner = relationship("User", back_populates="accounts")
     transactions = relationship("Transaction", back_populates="account")

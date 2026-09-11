@@ -204,6 +204,7 @@ def get_account(
 
 
 # Closes an account - withdraws any remaining balance first, then deletes it
+# Closes an account - withdraws any remaining balance first, then marks it inactive
 @app.delete("/accounts/{account_id}")
 def close_account(
     account_id: int,
@@ -218,6 +219,9 @@ def close_account(
     if account.user_id != current_user.id:
         raise HTTPException(status_code=403, detail="Not authorized to close this account")
 
+    if not account.is_active:
+        raise HTTPException(status_code=400, detail="Account is already closed")
+
     if account.balance > 0:
         final_withdrawal = models.Transaction(
             type="withdraw",
@@ -225,10 +229,12 @@ def close_account(
             account_id=account.id
         )
         db.add(final_withdrawal)
-    account.balance = 0
-    db.delete(account)
+        account.balance = 0
+
+    account.is_active = False
     db.commit()
     return {"message": "Account closed successfully and remaining balance was withdrawn"}
+
 
 
 
