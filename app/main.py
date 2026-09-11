@@ -251,6 +251,10 @@ def deposit(
     if not account:
         raise HTTPException(status_code=404, detail="Account not found")
 
+    
+    if not account.is_active:
+        raise HTTPException(status_code=400, detail="This account is closed")
+
     if account.user_id != current_user.id:
         raise HTTPException(status_code=403, detail="Not authorized")
 
@@ -287,6 +291,9 @@ def withdraw(
 
     if not account:
         raise HTTPException(status_code=404, detail="Account not found")
+    
+    if not account.is_active:
+        raise HTTPException(status_code=400, detail="This account is closed")
 
     if account.user_id != current_user.id:
         raise HTTPException(status_code=403, detail="Not authorized")
@@ -329,6 +336,9 @@ def get_transaction_history(
     db: Session = Depends(get_db)
 ):
     account = db.query(models.Account).filter(models.Account.id == account_id).first()
+
+    if not account.is_active:
+        raise HTTPException(status_code=400, detail="This account is closed")
 
     if not account:
         raise HTTPException(status_code=404, detail="Account not found")
