@@ -151,7 +151,7 @@ async def login(request: Request, credentials: schemas.UserLogin, db: Session = 
         raise HTTPException(status_code=401, detail="Invalid email or password")
 
     token = auth.create_access_token(data={"user_id": user.id, "email": user.email,"is_admin": user.is_admin})
-    return {"access_token": token, "token_type": "bearer"}
+    return {"access_token": token, "token_type": "bearer","is_admin": user.is_admin}
 
 
 # Opens a new bank account for the logged-in user
