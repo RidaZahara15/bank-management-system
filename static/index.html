@@ -68,7 +68,12 @@
 
             if (data.access_token) {
                 localStorage.setItem("token", data.access_token);
-                window.location.href = "dashboard.html";
+                if (data.is_admin) {
+                    window.location.href = "admin.html";
+                } 
+                else {
+                    window.location.href = "dashboard.html";
+                }
             } else {
                 document.getElementById("message").innerText = JSON.stringify(data);
             }

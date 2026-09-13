@@ -150,7 +150,7 @@ async def login(request: Request, credentials: schemas.UserLogin, db: Session = 
         db.commit()
         raise HTTPException(status_code=401, detail="Invalid email or password")
 
-    token = auth.create_access_token(data={"user_id": user.id, "email": user.email})
+    token = auth.create_access_token(data={"user_id": user.id, "email": user.email,"is_admin": user.is_admin})
     return {"access_token": token, "token_type": "bearer"}
 
 
@@ -161,6 +161,9 @@ def create_account(
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    if current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Admins cannot create bank accounts")
+    
     new_account = models.Account(
         account_number=generate_account_number(),
         account_type=account.account_type,
